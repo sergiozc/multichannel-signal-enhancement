@@ -1,0 +1,13 @@
+-----------------------------------------------------------
+-----------------COSAS QUE HAY QUE HACER-------------------
+-----------------------------------------------------------
+
+1º APLICAR LA VENTANA COMPLETA al procesamiento: fft de 512 muestras creo (no perder info)
+
+2º HACER MVDR CON BUENOS RESULTADOS: Comprobar la matriz de correlaciones y el patrón de directividad
+
+3º APLICAR ONDA ESFÉRICA: Afecta a las distancias de los de los sensores
+
+4º CAMBIAR Y PROBAR GEOMETRÍAS DEL ARRAY
+
+5º ESTIMAR POSICIÓN EXACTA DEL EMISOR: con mínimos cuadrados?
