@@ -96,6 +96,7 @@ n=0:1:N-1;
 % Se computa el retardo asociado a cada sensor
 tn=(n*d*cos(phi))/c;
 
+% hola
 
 % MATRIZ DE CORRELACIÓN ESPACIAL DEL RUIDO
 noise = y(1:8000, :);
