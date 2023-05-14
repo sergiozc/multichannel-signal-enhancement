@@ -76,6 +76,7 @@ phi=pi/2;           % Dirección de procedencia de la voz
 Fs=16000;           % Frecuencia de muestreo
 L=256;              % Longitud de la trama en muestras
 Lfft=512;           % Longitud de la FFT
+spherical = 0;      % 1 = onda esférica. 0 = onda plana
 
 %% CÁLCULO DEL BEAMFORMER
 
@@ -93,15 +94,43 @@ f=linspace(0,256,257)*(Fs/Lfft);
 % Sin embargo para MVDR afectará asi que consultar con Anthony
 n=0:1:N-1;
 
-% Se computa el retardo asociado a cada sensor
-tn=(n*d*cos(phi))/c;
+%Cáculo de la contribución de onda esférica si procede
+if spherical == 1
+    % Vector posición en el plano x de los sensores
+    rxn = n*d;
+    % Vector posición de la fuente (x,y) = (x_sensor_central, 1m)
+    r_source = [rxn(ceil(length(rxn)/2)) 1];
+    % Matriz de posiciones de cada sensor en el plano (x,y)
+    r_n = transpose(padarray(rxn, [1 0], 'post'));
+    % Ángulo de incidencia para cada sensor
+    phi = zeros(1,N);
+    % Vector de retardos
+    tn = zeros(1,N);
+    % Por trigonometría sabemos que el cos(x) = hip/cat_ady. Siendo la
+    % hipotenusa la distancia entre sensor y fuente y el cateto_ady la
+    % proyección de la distancia entre fuente y sensor en el eje x
+    
+    for i = 1:N
+        % Distancia euclídea entre la fuente y el sensor (hipotenusa)
+        d_s_n = norm(r_n(i, :) - r_source);
+        
+        phi(i) = acos((r_n(i,1) - r_source(1)) / d_s_n);
+        tn(i) = d_s_n / c;
+    end
+    
+% Suposición onda plana    
+else
+    % Se computa el retardo asociado a cada sensor (para 90 siempre es 0)
+    tn=(n*d*cos(phi))/c;
+end
 
 
 % MATRIZ DE CORRELACIÓN ESPACIAL DEL RUIDO
 noise = y(1:8000, :);
-noise_f = fft(noise);
-% Se hace la multiplicación de matrices y se normaliza
-corr_noise = transpose(noise_f)*conj(noise_f)/8000;
+% Matriz de ruido en el dominio de la frecuencia
+noise_f = transpose(fft(noise));
+% Se hace la multiplicación de matrices
+corr_noise = noise_f * noise_f';
 
 w = pesos_MVDR(tn, f, corr_noise);
 
@@ -187,8 +216,6 @@ end
 xout=xout(1:end-Lfft/2);
 
 %% Cálculo SNR
-%Para realizar el cálculo de la SNR, calculamos la potencia de la señal
-%y del ruido (primeras 3000 muestras) y obtenemos el ratio.
 
 % SNR ANTES DEL BEAMFORMING
 ruido_orig = var((xcent(1:8000))); %Interferencia aislada en las 3000 primeras muestras
@@ -213,7 +240,7 @@ grid on
 %soundsc(xcent,Fs);
 %soundsc(xout,Fs);
 
-% Guardamos señal resultante
+% Guardamos señal resultante normalizada
 fout=strcat('Resultado','.wav');
 audiowrite(fout,xout/max(abs(xout)),Fs)
 
@@ -226,43 +253,7 @@ theta_surf = linspace(0, 2*pi, 129); % Barrido en theta
 freq = linspace(0,256,257)*(Fs/Lfft);
 Vprop = 340;
 
-
-% VISUALIZACIÓN DE LOS RETARDOS
-figure(3)
-stem(tn)
-title('Retardos de cada sensor')
-ylabel('tiempo (s)')
-xlabel('N sensor')
-% La señal llega primero al último sensor (7). Es por ello que tiene
-% asociado el mayor retardo de todos.
-
-
 % CÁLCULO DE DIRECTIVIDADES
-% Almacenamos en un vector los índices correspondientes a las frecuencias
-% de interés 
-
-% frecuencias = [100, 400, 700, 1000, 2000,
-% 3000, 4000, 5000, 6000, 7000, 8000]
-index_freq = [3, 7, 12, 17, 33, 49, 69, 81, 97, 113, 129];
-D_matrix = zeros(length(index_freq),400);
-
-for index=1:length(index_freq)
-
-    D_matrix(index,:) = calcula_Dteo(w, freq, index_freq(index), d, Vprop, theta);
-
-end
-
-index_freq1 = 17; % 1kHz
-D_1kHz = calcula_Dteo(w, freq, index_freq1, d, Vprop, theta);
-index_freq2 = 129; % 8kHz
-D_8kHz = calcula_Dteo(w, freq, index_freq2, d, Vprop, theta);
-
-% Crear un gradiente de 10 colores que va de verde a azul
-color_map = [linspace(0,0,5)', linspace(1,0,5)', linspace(1,1,5)';
-             linspace(0,0,5)', linspace(0,1,5)', linspace(1,0,5)'];
-
-% Establecer el gradiente de colores personalizado
-colormap(color_map);
 
 % DIRECTIVIDAD EN FUNCIÓN DE LA FRECUENCIA
 Df = calcula_Df(w, freq, d, Vprop, theta_surf);

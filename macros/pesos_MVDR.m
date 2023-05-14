@@ -1,8 +1,8 @@
 function [W] = pesos_MVDR(tn, freq, corr_noise)
 %Función que calcula los pesos del beamformer MVDR para cada f
-% Se va a suponer campo homogéneo. (matriz de coherencia = matriz de corr)
-% SE LE DEBERÍA PASAR COMO PARÁMETRO DE ENTRADA LA MATRIZ DE COHERENCIA,
-% pero abajo se encuentran unos cálculos relativos a esta
+%Como argumento de entrada se da el vector de retardos, los frecuencias a
+%evaluar, la matriz de correlaciones espacial del ruido y la contribución
+%de onda (plana o esférica) para el cálculo del steering vector
 
 N = length(tn); %Longitud del vector de retardos
 flim = length(freq);     %Barrido de frecuencias
@@ -12,7 +12,7 @@ W = zeros(flim,N); %vector de pesos
 
     for f = 1:flim       
         for i = 1:N
-            ds(f,i) = exp(-1j*2*pi*tn(i)*freq(f)); % Matriz 129x7
+            ds(f,i) = exp(-1j*2*pi*tn(i)*freq(f));
 
         end
         W(f,:) = (inv(corr_noise) * transpose(ds(f,:))) / (conj(ds(f,:)) * inv(corr_noise) * transpose(ds(f,:)));
