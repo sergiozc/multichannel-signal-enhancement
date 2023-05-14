@@ -124,8 +124,6 @@ else
     tn=(n*d*cos(phi))/c;
 end
 
-% hola
-
 % MATRIZ DE CORRELACIÓN ESPACIAL DEL RUIDO
 noise = y(1:8000, :);
 % Matriz de ruido en el dominio de la frecuencia
