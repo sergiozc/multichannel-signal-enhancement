@@ -76,7 +76,7 @@ phi=pi/2;           % Dirección de procedencia de la voz
 Fs=16000;           % Frecuencia de muestreo
 L=256;              % Longitud de la trama en muestras
 Lfft=512;           % Longitud de la FFT
-spherical = 0;      % 1 = onda esférica. 0 = onda plana
+spherical = 1;      % 1 = onda esférica. 0 = onda plana
 
 %% CÁLCULO DEL BEAMFORMER
 
@@ -102,19 +102,16 @@ if spherical == 1
     r_source = [rxn(ceil(length(rxn)/2)) 1];
     % Matriz de posiciones de cada sensor en el plano (x,y)
     r_n = transpose(padarray(rxn, [1 0], 'post'));
-    % Ángulo de incidencia para cada sensor
-    phi = zeros(1,N);
     % Vector de retardos
     tn = zeros(1,N);
-    % Por trigonometría sabemos que el cos(x) = hip/cat_ady. Siendo la
-    % hipotenusa la distancia entre sensor y fuente y el cateto_ady la
+    % Por trigonometría sabemos que el cos(x) = hip/cat_contiguo. Siendo la
+    % hipotenusa la distancia entre sensor y fuente y el cateto_contiguo la
     % proyección de la distancia entre fuente y sensor en el eje x
     
     for i = 1:N
         % Distancia euclídea entre la fuente y el sensor (hipotenusa)
         d_s_n = norm(r_n(i, :) - r_source);
         
-        phi(i) = acos((r_n(i,1) - r_source(1)) / d_s_n);
         %Retardo (distancia / velocidad)
         tn(i) = d_s_n / c;
     end
