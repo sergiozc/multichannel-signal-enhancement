@@ -76,7 +76,7 @@ phi=pi/2;           % Dirección de procedencia de la voz
 Fs=16000;           % Frecuencia de muestreo
 L=256;              % Longitud de la trama en muestras
 Lfft=512;           % Longitud de la FFT
-spherical = 1;      % 1 = onda esférica. 0 = onda plana
+spherical = 0;      % 1 = onda esférica. 0 = onda plana
 
 %% CÁLCULO DEL BEAMFORMER
 
@@ -115,6 +115,10 @@ if spherical == 1
         %Retardo (distancia / velocidad)
         tn(i) = d_s_n / c;
     end
+
+    %Si tomamos como referencia t0, restamos ese retardo al resto:
+
+    tn = tn - tn(1);
     
 % Suposición onda plana    
 else
@@ -127,7 +131,10 @@ noise = y(1:8000, :);
 % Matriz de ruido en el dominio de la frecuencia
 noise_f = transpose(fft(noise));
 % Se hace la multiplicación de matrices
-corr_noise = noise_f * noise_f';
+corr_noise = (noise_f * noise_f')./8000;
+
+%cov_noise=cov(transpose(noise_f)); %Da como salida una matriz MxM, siendo M el nº de columnas
+
 
 w = pesos_MVDR(tn, f, corr_noise);
 
