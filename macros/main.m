@@ -43,7 +43,7 @@ for i = 1:Narray
 end
 
 % Seleccionamos subarray
-index=[5, 6, 7, 8, 9, 10, 11]; %array de 4 cm
+%index=[5, 6, 7, 8, 9, 10, 11]; %array de 4 cm
 %index=[3, 4, 6, 8, 10, 12, 13]; %array de 8 cm
 %index=[1, 2, 4, 8, 12, 14, 15]; %array de 16 cm
 %index=[1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]; %array completo
@@ -104,17 +104,24 @@ if spherical == 1
     r_n = transpose(padarray(rxn, [1 0], 'post'));
     % Vector de retardos
     tn = zeros(1,N);
-    % Por trigonometría sabemos que el cos(x) = hip/cat_contiguo. Siendo la
-    % hipotenusa la distancia entre sensor y fuente y el cateto_contiguo la
-    % proyección de la distancia entre fuente y sensor en el eje x
+    % Factor multiplicador del steering vector
+    d_n = zeros(1,N);
+    % Distancia euclídea de los sensores a la fuente
+    r_s_n = zeros(1,N);
     
+    
+    % Cálculo de las distancias
     for i = 1:N
-        % Distancia euclídea entre la fuente y el sensor (hipotenusa)
-        d_s_n = norm(r_n(i, :) - r_source);
-        
+        % Distancia euclídea entre la fuente y el sensor
+        r_s_n(i) = norm(r_n(i, :) - r_source);
+        % Se computa el factor con la distancia del sensor0 a la fuente y cada
+        % una de las distancias de los sensores a la fuente
+        d_n(i) = r_s_n(1) / r_s_n(i);
         %Retardo (distancia / velocidad)
-        tn(i) = d_s_n / c;
+        tn(i) = (r_s_n(i) - r_s_n(1)) / c;
     end
+    
+    
 
     %Si tomamos como referencia t0, restamos ese retardo al resto:
     tn = tn - tn(1);
@@ -132,10 +139,7 @@ noise_f = transpose(fft(noise));
 % Se hace la multiplicación de matrices
 corr_noise = (noise_f * noise_f')./8000;
 
-%cov_noise=cov(transpose(noise_f)); %Da como salida una matriz MxM, siendo M el nº de columnas
-
-
-w = pesos_MVDR(tn, f, corr_noise);
+w = pesos_MVDR(d_n, tn, f, corr_noise);
 
 %w = pesos_DAS(tn, f);
 
