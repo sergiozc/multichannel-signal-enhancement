@@ -76,7 +76,7 @@ phi=pi/2;           % Dirección de procedencia de la voz
 Fs=16000;           % Frecuencia de muestreo
 L=256;              % Longitud de la trama en muestras
 Lfft=512;           % Longitud de la FFT
-spherical = 0;      % 1 = onda esférica. 0 = onda plana
+spherical = 1;      % 1 = onda esférica. 0 = onda plana
 
 %% CÁLCULO DEL BEAMFORMER
 
@@ -117,7 +117,6 @@ if spherical == 1
     end
 
     %Si tomamos como referencia t0, restamos ese retardo al resto:
-
     tn = tn - tn(1);
     
 % Suposición onda plana    
@@ -157,7 +156,7 @@ Ntramas=2*(m/L)-1;
 
 % Se define la ventana de hanning que se aplica en análisis
 
-wh=hanning(L,'periodic');
+wh=hanning(256,'periodic');
 %wh = hanning(Ltrama+1,'periodic'); %Establecemos la ventana de hanning
 
 % La señal de salida del beamformer será del mismo tamaño que la longitud
@@ -200,7 +199,7 @@ for ntrama=1:Ntramas
     
     % Se realiza una simetrización del espectro antes de pasar al dominio
     % del tiempo para garantizar que la señal resultante sea real (el
-    % espectro de una señal real es conjuntamente simétrico)
+    % espectro de una señal real es conjugadamente simétrico)
     Xout_total(Lfft/2+2:Lfft)=conj(Xout_total(Lfft/2:-1:2));
     
     % Se aplica la transformada inversa de tamaño Lfft

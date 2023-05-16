@@ -16,5 +16,9 @@ W = zeros(flim,N); %vector de pesos
 
         end
         W(f,:) = (inv(corr_noise) * transpose(ds(f,:))) / (conj(ds(f,:)) * inv(corr_noise) * transpose(ds(f,:)));
+        %ds = transpose(ds); %Se queda 7x257
+        %W(f,:) = (inv(corr_noise) * ds(:,f)) / ((ds(:,f)' * inv(corr_noise)) * ds(:,f));
+        %Esto da error llegado a cierta iteración NO SE PQ
     end
 end
+
