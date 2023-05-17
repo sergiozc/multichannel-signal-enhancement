@@ -112,7 +112,7 @@ if spherical == 1
     
     % Cálculo de las distancias
     for i = 1:N
-        % Distancia euclídea entre la fuente y el sensor n
+        % Distancia euclídea entre la fuente y el sensor
         r_s_n(i) = norm(r_n(i, :) - r_source);
         % Se computa el factor con la distancia del sensor0 a la fuente y cada
         % una de las distancias de los sensores a la fuente
