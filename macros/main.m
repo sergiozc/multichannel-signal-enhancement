@@ -43,9 +43,9 @@ for i = 1:Narray
 end
 
 % Seleccionamos subarray
-%index=[5, 6, 7, 8, 9, 10, 11]; %array de 4 cm
+index=[5, 6, 7, 8, 9, 10, 11]; %array de 4 cm
 %index=[3, 4, 6, 8, 10, 12, 13]; %array de 8 cm
-index=[1, 2, 4, 8, 12, 14, 15]; %array de 16 cm
+%index=[1, 2, 4, 8, 12, 14, 15]; %array de 16 cm
 %index=[1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]; %array completo
 Nc=length(index); % No. de canales a utilizar
 dist=dist-dist(index(1)); %Primer elemento subarray como referencia
@@ -84,18 +84,13 @@ spherical = 1;      % 1 = onda esférica. 0 = onda plana
 % que la FFT es de 512 muestras
 
 f=linspace(0,256,257)*(Fs/Lfft);
-%freq = linspace(1, 8000, 257); %Vector de frecuencias (Fs >= Fmax)
 
-% Vector que contiene el indice de los sensores (Esta parte probablemente
-% haya que cambiarla puesto que el sensor central deberia ser n=0, para el
-% delay and sum no afecta porque en tn tenemos cos(90º) que es igual a cero
-% y todos los pesos para todas las frecuencias tienen el mismo valor.
-%
-% Sin embargo para MVDR afectará asi que consultar con Anthony
+% Vector que contiene el indice de los sensores 
 n=0:1:N-1;
 
 %Cáculo de la contribución de onda esférica si procede
 if spherical == 1
+    fprintf('Aplicada onda esférica \n');
     % Vector posición en el plano x de los sensores
     rxn = n*d;
     % Vector posición de la fuente (x,y) = (x_sensor_central, 1m)
@@ -106,7 +101,7 @@ if spherical == 1
     tn = zeros(1,N);
     % Factor multiplicador del steering vector
     d_n = zeros(1,N);
-    % Distancia euclídea de los sensores a la fuente
+    % Distancia de los sensores a la fuente
     r_s_n = zeros(1,N);
     
     
@@ -128,24 +123,60 @@ if spherical == 1
     
 % Suposición onda plana    
 else
+    fprintf('Aplicada onda plana \n');
     % Se computa el retardo asociado a cada sensor (para 90 siempre es 0)
     tn=(n*d*cos(phi))/c;
     d_n = ones(1,N);
 end
 
+%% Matriz de correlación espacial del ruido
+
 % MATRIZ DE CORRELACIÓN ESPACIAL DEL RUIDO
 muestras_ruido = 8000; % Ruido inicial
 cola_ruido = 48000; % Ruido final
 noise = y(1:muestras_ruido, :);
-noise = [noise ; y(cola_ruido:end, :)];
-% Matriz de ruido en el dominio de la frecuencia
-noise_f = transpose(fft(noise));
-% Se hace la multiplicación de matrices
-corr_noise = (noise_f * noise_f')./(muestras_ruido + cola_ruido);
+%noise = [noise ; y(cola_ruido:end, :)];
 
-w = pesos_MVDR(d_n, tn, f, corr_noise);
+% Garantizamos que el número de muestras del ruido sea divisible en tramas 
+% de tamaño 256
+[m,~]=size(noise);
+resto=mod(m,L);
+noise=noise(1:m-resto,:);
 
-%w = pesos_DAS(tn, f);
+% Se obtiene el número de muestras que tendrá el ruido sobre el que se
+% cálcula la matriz de correlación espacial
+[m,~]=size(noise);
+Ntramas=2*(m/L)-1;
+
+
+% Se define la ventana de hanning que se aplica en análisis
+wh=hanning(L,'periodic');
+
+corr_noise=zeros(N,N,257);
+trama_f=zeros(Lfft,N);
+for ntrama=1:Ntramas
+    
+    trama=noise(1+(ntrama-1)*L/2:(ntrama-1)*(L/2)+L,:);
+    
+    trama_f=fft(trama.*wh,512);
+
+    for i=1:N
+        for j=1:N
+            for k=1:length(f)
+                corr_noise(i,j,k) = corr_noise(i,j,k) + trama_f(k,i) * trama_f(k,j)';
+            end
+        end
+    end
+end
+
+corr_noise = corr_noise./Ntramas;
+
+
+%% Pesos del beamformer
+
+w = pesos_MVDR(d_n, tn, f, corr_noise); fprintf('Beamformer: MVDR \n');
+
+%w = pesos_DAS(d_n, tn, f);fprintf('Beamformer: DAS \n');
 
 %% SEÑAL DIVISIBLE EN TRAMAS DE L=256
 
@@ -229,7 +260,7 @@ xout=xout(1:end-Lfft/2);
 %% Cálculo SNR
 
 % SNR ANTES DEL BEAMFORMING
-ruido_orig = var((xcent(1:8000))); %Interferencia aislada en las 3000 primeras muestras
+ruido_orig = var((xcent(1:8000))); %Interferencia aislada en las 8000 primeras muestras
 pot_orig = var((xcent(8001:end)));
 SNR_orig = calculo_SNR(pot_orig, ruido_orig);
 fprintf('SNR(antes)  = %f dB\n', SNR_orig);
@@ -245,6 +276,15 @@ plot(xcent)
 hold on
 plot(xout)
 legend('Señal sensor central','Señal a la salida del beamformer')
+grid on
+
+% VISUALIZACIÓN DEL ESPECTRO DE LA SEÑAL DE SALIDA
+[pxx,f] = pwelch(xout,500,300,500,Fs);
+figure(3)
+plot(f,10*log10(pxx))
+xlabel('Frequency (Hz)')
+ylabel('PSD (dB/Hz)')
+title('Espectro señal xout')
 grid on
 
 %% Análisis subjetivo

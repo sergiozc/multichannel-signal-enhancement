@@ -8,6 +8,7 @@ N = length(tn); %Longitud del vector de retardos
 flim = length(freq);     %Barrido de frecuencias
 ds = zeros(flim,N); %Steering vector
 W = zeros(flim,N); %vector de pesos
+I = eye(N);
 
 
     for f = 1:flim       
@@ -15,7 +16,7 @@ W = zeros(flim,N); %vector de pesos
             ds(f,i) = d_n(i) * exp(-1j*2*pi*tn(i)*freq(f));
 
         end
-        W(f,:) = (inv(corr_noise) * transpose(ds(f,:))) / (conj(ds(f,:)) * inv(corr_noise) * transpose(ds(f,:)));
+        W(f,:) = (inv(corr_noise(:,:,f)) * transpose(ds(f,:))) / (conj(ds(f,:)) * inv(corr_noise(:,:,f)) * transpose(ds(f,:)));
     end
 end
 
