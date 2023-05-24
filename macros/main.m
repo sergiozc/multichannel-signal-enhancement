@@ -117,9 +117,8 @@ if spherical == 1
     end
     
     
-
     %Si tomamos como referencia t0, restamos ese retardo al resto:
-    tn = tn - tn(1);
+    %tn = tn - tn(1);
     
 % Suposición onda plana    
 else
@@ -195,7 +194,7 @@ Ntramas=2*(m/L)-1;
 
 % Se define la ventana de hanning que se aplica en análisis
 
-wh=hanning(256,'periodic');
+wh=hanning(L,'periodic');
 %wh = hanning(Ltrama+1,'periodic'); %Establecemos la ventana de hanning
 
 % La señal de salida del beamformer será del mismo tamaño que la longitud
