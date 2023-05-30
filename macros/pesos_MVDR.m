@@ -8,7 +8,6 @@ N = length(tn); %Longitud del vector de retardos
 flim = length(freq);     %Barrido de frecuencias
 ds = zeros(flim,N); %Steering vector
 W = zeros(flim,N); %vector de pesos
-I = eye(N);
 
 
     for f = 1:flim       

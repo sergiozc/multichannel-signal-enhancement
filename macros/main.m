@@ -43,8 +43,8 @@ for i = 1:Narray
 end
 
 % Seleccionamos subarray
-index=[5, 6, 7, 8, 9, 10, 11]; %array de 4 cm
-%index=[3, 4, 6, 8, 10, 12, 13]; %array de 8 cm
+%index=[5, 6, 7, 8, 9, 10, 11]; %array de 4 cm
+index=[3, 4, 6, 8, 10, 12, 13]; %array de 8 cm
 %index=[1, 2, 4, 8, 12, 14, 15]; %array de 16 cm
 %index=[1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]; %array completo
 Nc=length(index); % No. de canales a utilizar
@@ -78,7 +78,7 @@ L=256;              % Longitud de la trama en muestras
 Lfft=512;           % Longitud de la FFT
 spherical = 1;      % 1 = onda esférica. 0 = onda plana
 
-%% CÁLCULO DEL BEAMFORMER
+%% TIPO DE ONDA (ESFÉRICA O PLANA)
 
 % El vector de frecuencias va desde 0 hasta Fs/2, hay que tener en cuenta
 % que la FFT es de 512 muestras
@@ -129,12 +129,12 @@ else
     d_n = ones(1,N);
 end
 
-%% Matriz de correlación espacial del ruido
+%% MATRIZ DE CORRELACIÓN ESPACIAL DEL RUIDO
 
-% MATRIZ DE CORRELACIÓN ESPACIAL DEL RUIDO
+% Se selecciona las muestras correspondientes al ruido
 muestras_ruido = 8000; % Ruido inicial
-cola_ruido = 48000; % Ruido final
 noise = y(1:muestras_ruido, :);
+cola_ruido = 48000; % Ruido final
 %noise = [noise ; y(cola_ruido:end, :)];
 
 % Garantizamos que el número de muestras del ruido sea divisible en tramas 
@@ -152,30 +152,32 @@ Ntramas=2*(m/L)-1;
 % Se define la ventana de hanning que se aplica en análisis
 wh=hanning(L,'periodic');
 
-corr_noise=zeros(N,N,257);
+% Matriz de NxN para cada frecuencia
+corr_noise=zeros(N,N,Lfft/2 +1);
 trama_f=zeros(Lfft,N);
 for ntrama=1:Ntramas
-    
-    trama=noise(1+(ntrama-1)*L/2:(ntrama-1)*(L/2)+L,:);
-    
-    trama_f=fft(trama.*wh,512);
+    trama = noise(1+(ntrama-1)*L/2:(ntrama-1)*(L/2)+L,:); % Trama de 256
+    trama_f = fft(trama.*wh,Lfft); % Trama de 512 para la fft
 
-    for i=1:N
-        for j=1:N
-            for k=1:length(f)
+    for i=1:N % Sensor i
+        for j=1:N % Sensor j
+            for k=1:length(f) % Frecuencia k
                 corr_noise(i,j,k) = corr_noise(i,j,k) + trama_f(k,i) * trama_f(k,j)';
             end
         end
     end
 end
 
-corr_noise = corr_noise./Ntramas;
+corr_noise = corr_noise ./ (Ntramas); % Normalización
+
 
 
 %% Pesos del beamformer
 
+% MVDR
 w = pesos_MVDR(d_n, tn, f, corr_noise); fprintf('Beamformer: MVDR \n');
 
+% Delay & Sum
 %w = pesos_DAS(d_n, tn, f);fprintf('Beamformer: DAS \n');
 
 %% SEÑAL DIVISIBLE EN TRAMAS DE L=256
@@ -195,15 +197,13 @@ Ntramas=2*(m/L)-1;
 
 % Se define la ventana de hanning que se aplica en análisis
 
-wh=hanning(256,'periodic');
-%wh = hanning(Ltrama+1,'periodic'); %Establecemos la ventana de hanning
+wh=hanning(L,'periodic');
 
 % La señal de salida del beamformer será del mismo tamaño que la longitud
 % de la señal de entrada mas Lfft/2 muestras. Esto se deba a que la FFT e
 % IFFT son de tamaño 512 muestras por lo que siempre tendremos una cola de
 % 256 muestras más. 
 
-iter = 1;
 xout=zeros(m+Lfft/2,1);   % Señal a la salida del beamformer
 for ntrama=1:Ntramas
     
@@ -219,17 +219,17 @@ for ntrama=1:Ntramas
         % Pasamos al dominio de la frecuencia mediante la FFT de tamaño Lfft 
         % y se aplica la ventana de hanning completa en la etapa de análisis.
         
-        FFT=fft(trama.*wh,Lfft);
+        FFT = fft(trama.*wh, Lfft);
         
         % Se aplica el beamformer asociado al sensor unicamente desde la
         % posición 1 hasta Lfft/2+1, posiciones en las que hemos calculado los
         % pesos y donde tiene sentido físico.
         
-        beamformer=conj(w(:,c)).*FFT(1:Lfft/2+1);
+        beamformer = conj(w(:,c)).*FFT(1:Lfft/2+1);
         
         % Se acumula la trama a la salida del beamformer del sensor c con
         % la del resto
-        Xout_total=Xout_total+beamformer;
+        Xout_total = Xout_total + beamformer;
         
     end
     
@@ -239,7 +239,7 @@ for ntrama=1:Ntramas
     % Se realiza una simetrización del espectro antes de pasar al dominio
     % del tiempo para garantizar que la señal resultante sea real (el
     % espectro de una señal real es conjugadamente simétrico)
-    Xout_total(Lfft/2+2:Lfft)=conj(Xout_total(Lfft/2:-1:2));
+    Xout_total(Lfft/2+2:Lfft) = conj(Xout_total(Lfft/2:-1:2));
     
     % Se aplica la transformada inversa de tamaño Lfft
     
@@ -255,7 +255,7 @@ for ntrama=1:Ntramas
 end
 
 % Eliminamos la cola residual de la ultima trama
-xout=xout(1:end-Lfft/2);
+xout = xout(1:end-Lfft/2);
 
 %% Cálculo SNR
 
