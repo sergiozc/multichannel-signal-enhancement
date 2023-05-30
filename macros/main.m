@@ -117,9 +117,8 @@ if spherical == 1
     end
     
     
-
     %Si tomamos como referencia t0, restamos ese retardo al resto:
-    tn = tn - tn(1);
+    %tn = tn - tn(1);
     
 % Suposición onda plana    
 else
@@ -219,17 +218,14 @@ for ntrama=1:Ntramas
         % Pasamos al dominio de la frecuencia mediante la FFT de tamaño Lfft 
         % y se aplica la ventana de hanning completa en la etapa de análisis.
         
-        FFT = fft(trama.*wh, Lfft);
         
         % Se aplica el beamformer asociado al sensor unicamente desde la
         % posición 1 hasta Lfft/2+1, posiciones en las que hemos calculado los
         % pesos y donde tiene sentido físico.
         
-        beamformer = conj(w(:,c)).*FFT(1:Lfft/2+1);
         
         % Se acumula la trama a la salida del beamformer del sensor c con
         % la del resto
-        Xout_total = Xout_total + beamformer;
         
     end
     
@@ -239,7 +235,6 @@ for ntrama=1:Ntramas
     % Se realiza una simetrización del espectro antes de pasar al dominio
     % del tiempo para garantizar que la señal resultante sea real (el
     % espectro de una señal real es conjugadamente simétrico)
-    Xout_total(Lfft/2+2:Lfft) = conj(Xout_total(Lfft/2:-1:2));
     
     % Se aplica la transformada inversa de tamaño Lfft
     
@@ -255,7 +250,6 @@ for ntrama=1:Ntramas
 end
 
 % Eliminamos la cola residual de la ultima trama
-xout = xout(1:end-Lfft/2);
 
 %% Cálculo SNR
 
