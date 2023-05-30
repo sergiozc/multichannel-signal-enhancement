@@ -76,7 +76,7 @@ phi=pi/2;           % Dirección de procedencia de la voz
 Fs=16000;           % Frecuencia de muestreo
 L=256;              % Longitud de la trama en muestras
 Lfft=512;           % Longitud de la FFT
-spherical = 1;      % 1 = onda esférica. 0 = onda plana
+spherical = 0;      % 1 = onda esférica. 0 = onda plana
 
 %% TIPO DE ONDA (ESFÉRICA O PLANA)
 
@@ -118,7 +118,7 @@ if spherical == 1
     
     
     %Si tomamos como referencia t0, restamos ese retardo al resto:
-    %tn = tn - tn(1);
+    tn = tn - tn(1);
     
 % Suposición onda plana    
 else
@@ -218,14 +218,17 @@ for ntrama=1:Ntramas
         % Pasamos al dominio de la frecuencia mediante la FFT de tamaño Lfft 
         % y se aplica la ventana de hanning completa en la etapa de análisis.
         
+        FFT=fft(trama.*wh,Lfft);
         
         % Se aplica el beamformer asociado al sensor unicamente desde la
         % posición 1 hasta Lfft/2+1, posiciones en las que hemos calculado los
         % pesos y donde tiene sentido físico.
         
-        
+        beamformer=conj(w(:,c)).*FFT(1:Lfft/2+1);
+        %beamformer=w(:,c).*FFT(1:Lfft/2+1);
         % Se acumula la trama a la salida del beamformer del sensor c con
         % la del resto
+        Xout_total=Xout_total+beamformer;
         
     end
     
@@ -250,6 +253,7 @@ for ntrama=1:Ntramas
 end
 
 % Eliminamos la cola residual de la ultima trama
+xout=xout(1:end-Lfft/2);
 
 %% Cálculo SNR
 
