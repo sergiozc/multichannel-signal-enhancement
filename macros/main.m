@@ -1,3 +1,17 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%% IMPLEMENTACIÓN DE UN BEAMFORMER EN UN ARRAY LINEAL %%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Autores:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% - David Fernández Martínez
+% - Sergio Zapata Caparrós
+% - Javier Lobato Martín
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% MIT License
+% Copyright (c) [2023]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 clc;
 clear all;
 close all;
@@ -87,7 +101,7 @@ c = 340; % Velocidad de propagación
 
 %% Tipo de onda
 % Se puede elegir entre onda plana o esférica
-[d_n, tn] = onda_tipo(c, d, N, n, 'spherical');
+[d_n, tn] = onda_tipo(c, d, N, phi, 'spherical');
 
 %% MATRIZ DE CORRELACIÓN ESPACIAL DEL RUIDO
 muestras_ruido = 8000;
@@ -136,7 +150,7 @@ for ntram = 1:Ntramas  % Se computa cada trama
 
     end
     
-    iter = iter + 127;
+    iter = iter + (Ltrama/2-1);
 end
 
 %Unimos todos los canales y realizamos una escucha
@@ -149,7 +163,7 @@ xout_norm = xc_out_sum/max(abs(xc_out_sum));
 soundsc(real(xout_norm),Fs);
 
 % Guardamos señal resultante normalizada
-fout=strcat('Resultado','.wav');
+fout=strcat('./RESULTS/MVDR_result','.wav');
 audiowrite(fout,xout_norm,Fs)
 
 

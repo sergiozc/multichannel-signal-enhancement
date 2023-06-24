@@ -1,9 +1,16 @@
-function [d_n, tn] = onda_tipo(c, d, N, onda)
-% De argumentos de entrada se admite:
+function [d_n, tn] = onda_tipo(c, d, N, phi, onda)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Función que realiza la implementación de onda esférica u onda plana según
+% corresponda.
+% Argumentos de entrada¡:
 % c: velocidad de propagación
 % d: distancia (uniforme) entre los elementos del array
 % N: Número de elementos
 % onda: tipo de onda a computar esférica ('spherical') o plana
+% Argumentos de salida:
+% d_n: factor multiplicador según la distancia de cada sensor
+% tn: retardo asignado para cada sensor
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 n=0:1:N-1; % índice de cada uno de los sensores en el array. Ej: 0, 1, 2, 3...
 

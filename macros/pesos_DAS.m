@@ -1,7 +1,15 @@
-function [W] = pesos_DAS(d_n,tn, freq)
-%PESOS: Función que calcula los pesos del beamformer para cada f
+function [W] = pesos_DAS(d_n, tn, freq)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Función que calcula los pesos del beamformer Delay & Sum para cada
+% frecuencia.
+% Argumentos de entrada: 
+% d_n: factor multiplicador dependiendo del tipo de onda aplicado
+% tn: vector de retardos
+% freq: rango de frecuencias a evaluar
+% Argumentos de salida: Pesos del beamformer para cada frecuencia
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N = length(tn); %longitud del vector de retardos
+N = length(tn); %Número de elementos del array
 flim = length(freq);     %Barrido de frecuencias
 W = zeros(flim,N); %Inicializamos el vector de pesos
 
