@@ -1,4 +1,3 @@
-
 clc;
 clear all;
 close all;
@@ -11,7 +10,6 @@ close all;
 % Posicion Speaker: 1 m del centro del array
 % Muestras: 16 kHz, 16 bits por muestra
 % 15 canales
-% Big-endian
 Fs     = 16000; % Frec. muestreo
 Narray = 15; % Nº de canales del array
 dist=[0 16 24 32 36 40 44 48 52 56 60 64 72 80 96]*0.01; % Espaciado (m)
@@ -24,7 +22,7 @@ fname = 'an101-mtms-arr4A.adc'; dspk=1; % computer lab, speaker 1m
 
 % Lectura de las señales
 fnamebase=fname(1:16);
-fname = strcat(dir,fname)
+fname = strcat(dir,fname);
 [fid,msg] = fopen(fname,'r','b');
 if fid < 0
   disp(msg);
@@ -43,8 +41,8 @@ for i = 1:Narray
 end
 
 % Seleccionamos subarray
-%index=[5, 6, 7, 8, 9, 10, 11]; %array de 4 cm
-index=[3, 4, 6, 8, 10, 12, 13]; %array de 8 cm
+index=[5, 6, 7, 8, 9, 10, 11]; %array de 4 cm
+%index=[3, 4, 6, 8, 10, 12, 13]; %array de 8 cm
 %index=[1, 2, 4, 8, 12, 14, 15]; %array de 16 cm
 %index=[1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]; %array completo
 Nc=length(index); % No. de canales a utilizar
@@ -67,231 +65,119 @@ xcent=y(:,ncent);
 fcent=strcat(fnamebase,'.wav');
 audiowrite(fcent,xcent/max(abs(xcent)),Fs)
 
-%% DEFINICIÓN DE PARÁMETROS BÁSICOS
 
-N=Nc;               % Número de sensores
+figure(1)
+plot(y(:,ncent))
+title('Representación temporal del audio')
+
+%% Definición de variables
+
+Fs = 16e3;          % Frecuencia de muestreo
 d=dist(2)-dist(1);  % Separación entre elementos del array
-c=340;              % Velocidad de propagación del sonido
-phi=pi/2;           % Dirección de procedencia de la voz
-Fs=16000;           % Frecuencia de muestreo
-L=256;              % Longitud de la trama en muestras
-Lfft=512;           % Longitud de la FFT
-spherical = 0;      % 1 = onda esférica. 0 = onda plana
+Vprop = 340;        % Velocidad del sonido
+Ltrama = 256;       % Tramas de 256 muestras
+Lfft = 512;         % Longitud de la FFT
+N = Nc;             % Contamos con 7 elementos
+phi = pi/2;         % Ángulo de llegada del target
+L_signal = length(y(:,ncent));   %Longitud total de la señal
+win = hanning(Ltrama+1,'periodic'); % Ventana de hanning  
+freq = linspace(0,256,257)*(Fs/Lfft); % de 0 a 8000 Hz
+n=0:1:N-1; % Índice de los elementos del array
+c = 340; % Velocidad de propagación
 
-%% TIPO DE ONDA (ESFÉRICA O PLANA)
-
-% El vector de frecuencias va desde 0 hasta Fs/2, hay que tener en cuenta
-% que la FFT es de 512 muestras
-
-f=linspace(0,256,257)*(Fs/Lfft);
-
-% Vector que contiene el indice de los sensores 
-n=0:1:N-1;
-
-%Cáculo de la contribución de onda esférica si procede
-if spherical == 1
-    fprintf('Aplicada onda esférica \n');
-    % Vector posición en el plano x de los sensores
-    rxn = n*d;
-    % Vector posición de la fuente (x,y) = (x_sensor_central, 1m)
-    r_source = [rxn(ceil(length(rxn)/2)) 1];
-    % Matriz de posiciones de cada sensor en el plano (x,y)
-    r_n = transpose(padarray(rxn, [1 0], 'post'));
-    % Vector de retardos
-    tn = zeros(1,N);
-    % Factor multiplicador del steering vector
-    d_n = zeros(1,N);
-    % Distancia de los sensores a la fuente
-    r_s_n = zeros(1,N);
-    
-    
-    % Cálculo de las distancias
-    for i = 1:N
-        % Distancia euclídea entre la fuente y el sensor n
-        r_s_n(i) = norm(r_n(i, :) - r_source);
-        % Se computa el factor con la distancia del sensor0 a la fuente y cada
-        % una de las distancias de los sensores a la fuente
-        d_n(i) = r_s_n(1) / r_s_n(i);
-        %Retardo (distancia / velocidad)
-        tn(i) = (r_s_n(i) - r_s_n(1)) / c;
-    end
-    
-    
-    %Si tomamos como referencia t0, restamos ese retardo al resto:
-    tn = tn - tn(1);
-    
-% Suposición onda plana    
-else
-    fprintf('Aplicada onda plana \n');
-    % Se computa el retardo asociado a cada sensor (para 90 siempre es 0)
-    tn=(n*d*cos(phi))/c;
-    d_n = ones(1,N);
-end
+%% Tipo de onda
+% Se puede elegir entre onda plana o esférica
+[d_n, tn] = onda_tipo(c, d, N, n, 'spherical');
 
 %% MATRIZ DE CORRELACIÓN ESPACIAL DEL RUIDO
+muestras_ruido = 8000;
+corr_noise = noise_matrix_vent_complet(N, freq, win, Ltrama, Lfft, muestras_ruido, y);
 
-% Se selecciona las muestras correspondientes al ruido
-muestras_ruido = 8000; % Ruido inicial
-noise = y(1:muestras_ruido, :);
-cola_ruido = 48000; % Ruido final
-%noise = [noise ; y(cola_ruido:end, :)];
+%% Cómputo del Beamformer
 
-% Garantizamos que el número de muestras del ruido sea divisible en tramas 
-% de tamaño 256
-[m,~]=size(noise);
-resto=mod(m,L);
-noise=noise(1:m-resto,:);
+% CÁLCULO DE PESOS
+% Pesos MVDR
+w = pesos_MVDR(d_n, tn, freq, corr_noise);fprintf('Beamformer: MVDR \n');
+% Pesos DAS
+%w = pesos_DAS(d_n,tn, freq);fprintf('Beamformer: DAS \n');
 
-% Se obtiene el número de muestras que tendrá el ruido sobre el que se
-% cálcula la matriz de correlación espacial
-[m,~]=size(noise);
-Ntramas=2*(m/L)-1;
-
-
-% Se define la ventana de hanning que se aplica en análisis
-wh=hanning(L,'periodic');
-
-% Matriz de NxN para cada frecuencia
-corr_noise=zeros(N,N,Lfft/2 +1);
-trama_f=zeros(Lfft,N);
-for ntrama=1:Ntramas
-    trama = noise(1+(ntrama-1)*L/2:(ntrama-1)*(L/2)+L,:); % Trama de 256
-    trama_f = fft(trama.*wh,Lfft); % Trama de 512 para la fft
-
-    for i=1:N % Sensor i
-        for j=1:N % Sensor j
-            for k=1:length(f) % Frecuencia k
-                corr_noise(i,j,k) = corr_noise(i,j,k) + trama_f(k,i) * trama_f(k,j)';
-            end
-        end
-    end
-end
-
-corr_noise = corr_noise ./ (Ntramas); % Normalización
-
-
-
-%% Pesos del beamformer
-
-% MVDR
-w = pesos_MVDR(d_n, tn, f, corr_noise); fprintf('Beamformer: MVDR \n');
-
-% Delay & Sum
-%w = pesos_DAS(d_n, tn, f);fprintf('Beamformer: DAS \n');
-
-%% SEÑAL DIVISIBLE EN TRAMAS DE L=256
-
-% Garantizamos que la señal sea divisible en tramas de tamaño 256
+% SEÑAL DIVISIBLE ENTRE Ltrama 
 [m,~]=size(y);
-resto=mod(m,L);
+resto=mod(m,Ltrama);
 y=y(1:m-resto,:);
-
 % Se obtiene el número de muestras que tendrá la señal sobre la que se
 % aplicará el beamforming
 [m,~]=size(y); 
 
-Ntramas=2*(m/L)-1;
+Ntramas=2*(m/Ltrama)-1;
 
-%% PROCESO DE ANÁLISIS-SINTESIS OVERLAP AND ADD
+%% PROCESADO POR TRAMAS (análisis-síntesis)
 
-% Se define la ventana de hanning que se aplica en análisis
+xc_out = zeros(L_signal,N); % Matriz del resultado final
+XOUT = zeros(Lfft/2+1, 1); % Señal depúes de aplicar los pesos
+iter = 1;
+for ntram = 1:Ntramas  % Se computa cada trama
 
-wh=hanning(L,'periodic');
+    for c = 1:N        % Se computa cada sensor
+        
+        xn = y(iter:iter + Ltrama ,c); %Tomamos la porción de señal del canal correspondiente
+        Xn = fft(win.*xn, Lfft);        %Realizamos la transformada de Fourier de la ventana (512 muestras)
+        Xn = Xn(1:Lfft/2+1);          %Tomamos las componentes de frecuencia de 0 a Fs/2 (Fs/2 = 8 kHz)s     
+        Xn = Xn .* conj(w(:,c));        %Multiplicamos por los pesos correspondientes
+        
 
-% La señal de salida del beamformer será del mismo tamaño que la longitud
-% de la señal de entrada mas Lfft/2 muestras. Esto se deba a que la FFT e
-% IFFT son de tamaño 512 muestras por lo que siempre tendremos una cola de
-% 256 muestras más. 
+        %Realizamos la simetrización para practicar la transformada inversa
+        simet = conj(Xn);
+        XOUT = cat(1, Xn, simet(end:-1:2));
+        xout = real(ifft(XOUT));
+        
+        %Concatenación de tramas mediante ''overlap add''
+        xc_out(iter:iter + Lfft, c) = xc_out(iter:iter + Lfft, c) + xout;
 
-xout=zeros(m+Lfft/2,1);   % Señal a la salida del beamformer
-for ntrama=1:Ntramas
-    
-    % En la variable Xout_total se acumulan las tramas de los 7 sensores tras
-    % aplicarse los pesos del beamformer  en el dominio de la frecuencia.
-    Xout_total=zeros(Lfft/2+1,1);
-    
-    % En este bucle se recorren los sensores
-    for c=1:N
-        % Se selecciona la trama, desplazandose en cada iteración L/2 
-        trama=y(1+(ntrama-1)*L/2:(ntrama-1)*(L/2)+L,c);
-        
-        % Pasamos al dominio de la frecuencia mediante la FFT de tamaño Lfft 
-        % y se aplica la ventana de hanning completa en la etapa de análisis.
-        
-        FFT=fft(trama.*wh,Lfft);
-        
-        % Se aplica el beamformer asociado al sensor unicamente desde la
-        % posición 1 hasta Lfft/2+1, posiciones en las que hemos calculado los
-        % pesos y donde tiene sentido físico.
-        
-        beamformer=conj(w(:,c)).*FFT(1:Lfft/2+1);
-        %beamformer=w(:,c).*FFT(1:Lfft/2+1);
-        % Se acumula la trama a la salida del beamformer del sensor c con
-        % la del resto
-        Xout_total=Xout_total+beamformer;
-        
     end
     
-    % Una vez que se ha aplicado el beamformer sobre la trama de señal de
-    % todos los sensores se pasa a la etapa de sintesis.
-    
-    % Se realiza una simetrización del espectro antes de pasar al dominio
-    % del tiempo para garantizar que la señal resultante sea real (el
-    % espectro de una señal real es conjugadamente simétrico)
-    
-    % Se aplica la transformada inversa de tamaño Lfft
-    
-    IFFT = real(ifft(Xout_total,Lfft));
-    
-    
-    % Finalmente se aplica el proceso de overlap-add ''solapando'' la trama
-    % de señal reconstruida sobre la señal de salida en las mismas
-    % posiciones en las que se obtuvo la trama en la etapa de análisis.
-    % Se indica Lfft en lugar de L porque la variable IFFT es de tamaño
-    % 512.
-    xout(1+(ntrama-1)*L/2:(ntrama-1)*(L/2)+Lfft)=xout(1+(ntrama-1)*L/2:(ntrama-1)*(L/2)+Lfft)+ real(IFFT);
+    iter = iter + 127;
 end
 
+%Unimos todos los canales y realizamos una escucha
+xc_out_sum = sum(xc_out, 2);
 % Eliminamos la cola residual de la ultima trama
-xout=xout(1:end-Lfft/2);
+xc_out_sum=xc_out_sum(1:end-Lfft/2);
 
-%% Cálculo SNR
-
-% SNR ANTES DEL BEAMFORMING
-ruido_orig = var((xcent(1:8000))); %Interferencia aislada en las 8000 primeras muestras
-pot_orig = var((xcent(8001:end)));
-SNR_orig = calculo_SNR(pot_orig, ruido_orig);
-fprintf('SNR(antes)  = %f dB\n', SNR_orig);
-
-% SNR DESPUÉS DEL BEAMFORMING DAS
-ruido_BF = var(real(xout(1:8000)));
-pot_BF = var(real(xout(8001:end)));
-SNR_BF = calculo_SNR(pot_BF, ruido_BF);
-fprintf('SNR(desp)  = %f dB\n', SNR_BF);
-
-figure(1)
-plot(xcent)
-hold on
-plot(xout)
-legend('Señal sensor central','Señal a la salida del beamformer')
-grid on
-
-% VISUALIZACIÓN DEL ESPECTRO DE LA SEÑAL DE SALIDA
-[pxx,f] = pwelch(xout,500,300,500,Fs);
-figure(3)
-plot(f,10*log10(pxx))
-xlabel('Frequency (Hz)')
-ylabel('PSD (dB/Hz)')
-title('Espectro señal xout')
-grid on
-
-%% Análisis subjetivo
-%soundsc(xcent,Fs);
-%soundsc(xout,Fs);
+% Normalizamos la señal y la escuchamos
+xout_norm = xc_out_sum/max(abs(xc_out_sum));
+soundsc(real(xout_norm),Fs);
 
 % Guardamos señal resultante normalizada
 fout=strcat('Resultado','.wav');
-audiowrite(fout,xout/max(abs(xout)),Fs)
+audiowrite(fout,xout_norm,Fs)
+
+
+figure(2)
+plot(y(:,ncent));
+hold on
+plot(real(xout_norm));
+hold off
+legend('Señal sensor central','Señal a la salida del beamformer')
+title('Representación temporal tras MVDR')
+%Se puede comprobar como el ruido se ha minimizado
+
+%% Cálculo SNR
+%Para realizar el cálculo de la SNR, calculamos la potencia de la señal
+%y del ruido (primeras 8000 muestras) y obtenemos el ratio.
+
+% SNR ANTES DEL BEAMFORMING
+ruido_orig = var((y(1:8000, 1))); %Interferencia aislada en las 3000 primeras muestras
+pot_orig = var((y(8000:end, 1)));
+SNR_orig = calculo_SNR(pot_orig, ruido_orig);
+fprintf('SNR(before)  = %f dB\n', SNR_orig);
+
+% SNR DESPUÉS DEL BEAMFORMING
+ruido_BF = var(real(xout_norm(1:8000)));
+pot_BF = var(real(xout_norm(8000:end)));
+SNR_BF = calculo_SNR(pot_BF, ruido_BF);
+fprintf('SNR(after)  = %f dB\n', SNR_BF);
+
 
 %% Comprobación beamformer
 
@@ -299,10 +185,71 @@ audiowrite(fout,xout/max(abs(xout)),Fs)
 theta = linspace(0, pi, 200); % Barrido en theta
 theta_polar = linspace(0, 2*pi, 400); % Barrido representación polar
 theta_surf = linspace(0, 2*pi, 129); % Barrido en theta
-freq = linspace(0,256,257)*(Fs/Lfft);
-Vprop = 340;
+
+
+% VISUALIZACIÓN DE LOS RETARDOS
+figure(3)
+stem(tn)
+title('Retardos de cada sensor')
+ylabel('tiempo (s)')
+xlabel('N sensor')
+% La señal llega primero al último sensor (7). Es por ello que tiene
+% asociado el mayor retardo de todos.
+
 
 % CÁLCULO DE DIRECTIVIDADES
+% Almacenamos en un vector los índices correspondientes a las frecuencias
+% de interés 
+
+% frecuencias = [100, 400, 700, 1000, 2000,
+% 3000, 4000, 5000, 6000, 7000, 8000]
+index_freq = [3, 7, 12, 17, 33, 49, 69, 81, 97, 113, 129];
+D_matrix = zeros(length(index_freq),400);
+
+for index=1:length(index_freq)
+
+    D_matrix(index,:) = calcula_Dteo(w, freq, index_freq(index), d, Vprop, theta);
+
+end
+
+index_freq1 = 17; % 1kHz
+D_1kHz = calcula_Dteo(w, freq, index_freq1, d, Vprop, theta);
+index_freq2 = 129; % 8kHz
+D_8kHz = calcula_Dteo(w, freq, index_freq2, d, Vprop, theta);
+
+% Crear un gradiente de 10 colores que va de verde a azul
+color_map = [linspace(0,0,5)', linspace(1,0,5)', linspace(1,1,5)';
+             linspace(0,0,5)', linspace(0,1,5)', linspace(1,0,5)'];
+
+% Establecer el gradiente de colores personalizado
+colormap(color_map);
+
+
+
+figure(4);
+polarplot(theta_polar, D_matrix(1,:),'Color',[color_map(1,:)]);
+hold on
+polarplot(theta_polar, D_matrix(2,:),'Color',[color_map(2,:)]);
+polarplot(theta_polar, D_matrix(3,:),'Color',[color_map(3,:)]);
+polarplot(theta_polar, D_matrix(4,:),'Color',[color_map(4,:)]);
+polarplot(theta_polar, D_matrix(5,:),'Color',[color_map(5,:)]);
+polarplot(theta_polar, D_matrix(6,:),'Color',[color_map(6,:)]);
+polarplot(theta_polar, D_matrix(7,:),'Color',[0.6350 0.0780 0.1840]);
+polarplot(theta_polar, D_matrix(8,:),'Color',[color_map(7,:)]);
+polarplot(theta_polar, D_matrix(9,:),'Color',[color_map(8,:)]);
+polarplot(theta_polar, D_matrix(10,:),'Color',[color_map(9,:)]);
+polarplot(theta_polar, D_matrix(11,:),'Color',[color_map(10,:)]);
+hold off
+title('Directividad teórica');
+legend('f = 100Hz','f = 400Hz','f = 700Hz','f = 1kHz','f = 2kHz','f = 3kHz','f = 4.25kHz','f = 5kHz','f = 6kHz','f = 7kHz', 'f = 8kHz');
+% Se observa el aumento de la directividad conforme la frecuencia va
+% creciendo.
+% Podemos ver como aparecen lóbulos indeseados en las frecuencias a partir
+% de nuestra frecuencia óptima de lambda/2 = 4250 Hz. El valor óptimo es
+% donde se puede observar una mayor directividad sin lóbulos secundarios
+% indeseados. Esto se justifica en base al teorema de muestreo espacial:
+% La separación entre sensores 
+
 
 % DIRECTIVIDAD EN FUNCIÓN DE LA FRECUENCIA
 Df = calcula_Df(w, freq, d, Vprop, theta_surf);
@@ -325,6 +272,4 @@ title('Directividad en función de la frecuencia y ángulo');
 % disminuye (se hace más directivo). delta = 1/(f*L)
 % Se ve también que a partir de un determinado valor de frecuencia,
 % aparecen más rizados (o lóbulos secundarios).
-
-
 
